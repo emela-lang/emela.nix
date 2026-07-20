@@ -35,6 +35,8 @@ echo "pinning emela v$version -> $json" >&2
 systems="aarch64-darwin:aarch64-apple-darwin x86_64-linux:x86_64-unknown-linux-gnu"
 
 jq_args=(--arg v "$version")
+# $v and $sys below are jq variables (single-quoted on purpose), not shell vars.
+# shellcheck disable=SC2016
 jq_filter='.latest = $v | .releases[$v] = {}'
 for pair in $systems; do
   sys="${pair%%:*}"
