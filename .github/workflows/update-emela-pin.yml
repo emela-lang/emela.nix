@@ -1,0 +1,74 @@
+name: update-emela-pin
+
+# Re-pins pkgs/emela/versions.json to a new emela release and opens a PR.
+#
+# Primary trigger is `repository_dispatch`, sent by emela's own release
+# workflow when it publishes a release (event-driven, immediate). The manual
+# and weekly-schedule triggers are backstops in case a dispatch is missed.
+on:
+  repository_dispatch:
+    types: [emela-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "emela version to pin (blank = latest stable)"
+        required: false
+        default: ""
+  schedule:
+    # Safety net: catch releases that never sent a dispatch. Mondays 06:00 UTC.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-emela-pin
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    # Exposed via env so the optional App step's `if` can test it: the `secrets`
+    # context is not available in `if` expressions.
+    env:
+      APP_ID: ${{ secrets.APP_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Resolve target version
+        id: v
+        # From the dispatch payload, the manual input, or blank (-> latest).
+        run: |
+          v='${{ github.event.client_payload.version || github.event.inputs.version }}'
+          echo "version=${v#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Re-pin versions.json
+        run: nix run .#update -- '${{ steps.v.outputs.version }}'
+
+      # Optional: if the `emela-release` App is also installed here with its
+      # credentials in this repo, author the PR as the App so emela.nix's own CI
+      # (e.g. `nix flake check`) runs on it. Otherwise fall back to GITHUB_TOKEN.
+      - name: Mint App token (optional)
+        id: app-token
+        if: ${{ env.APP_ID != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
+          commit-message: "emela: pin ${{ steps.v.outputs.version || 'latest' }}"
+          title: "emela: update pinned release (${{ steps.v.outputs.version || 'latest' }})"
+          body: |
+            Automated re-pin of `pkgs/emela/versions.json` via `nix run .#update`.
+
+            Triggered by `${{ github.event_name }}`.
+          branch: automation/emela-update
+          delete-branch: true
+          labels: automation
