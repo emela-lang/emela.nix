@@ -1,0 +1,54 @@
+name: ci
+
+# Gate for pull requests. Because App-authored automation PRs (see
+# update-emela-pin.yml) trigger this like any human PR, it doubles as the
+# required check that guards auto-merge of the emela version bumps.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest # x86_64-linux
+          - os: macos-latest  # aarch64-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      # Evaluate every flake output (catches eval breakage), but do not build
+      # the heavy source package here.
+      - name: flake check (eval only)
+        run: nix flake check --no-build --show-trace
+
+      # The payload check for a version bump: actually fetch and unpack the
+      # pinned release binary, verifying the sha256 recorded in versions.json.
+      - name: build pinned emela binary
+        run: nix build .#emela --print-build-logs
+
+  # Single, stable status check to require in branch protection. Green only
+  # when every matrix build above succeeded (a skipped/failed matrix leg fails
+  # this job, so branch protection cannot be satisfied by a partial run).
+  ci:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: verify matrix result
+        run: |
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "one or more build jobs did not succeed: ${{ needs.build.result }}"
+            exit 1
+          fi
