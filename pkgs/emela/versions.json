@@ -1,5 +1,5 @@
 {
-  "latest": "0.8.1",
+  "latest": "0.9.0",
   "releases": {
     "0.7.0": {
       "aarch64-darwin": "sha256-hKCRphzzcJ/KKxQROrzY6pxN1q1BtQiUGSoSdx89iH8=",
@@ -24,6 +24,10 @@
     "0.8.1": {
       "aarch64-darwin": "sha256-CUGJQaFfJNfHX8KOiESJVGvULn7uQXlJVgejrJdy2VE=",
       "x86_64-linux": "sha256-YKgqbEPmj+1UG7tayEVjH/hmRfoc50kUtNpUfiNjQRw="
+    },
+    "0.9.0": {
+      "aarch64-darwin": "sha256-IXH/T3ZvUqBJC0MUdkxhnUtGCcak3n8LiY+lOHo7rRc=",
+      "x86_64-linux": "sha256-rVgdT8mCBaJhQQwaFzxAI+nmXk1Nk3Sk78ZeENG1EdE="
     }
   }
 }
