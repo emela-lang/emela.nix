@@ -60,6 +60,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Open pull request
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ steps.app-token.outputs.token || github.token }}
@@ -72,3 +73,13 @@ jobs:
           branch: automation/emela-update
           delete-branch: true
           labels: automation
+
+      # Queue the PR for auto-merge; GitHub merges it once the required `ci`
+      # check passes. This only works because the PR is App-authored above:
+      # a GITHUB_TOKEN-authored PR does not trigger the `ci` workflow, so the
+      # required check would never appear and auto-merge would hang forever.
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        run: gh pr merge --squash --auto "${{ steps.cpr.outputs.pull-request-number }}"
